@@ -113,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
         songsSinceJingle: 0,
         likes: {},
         tempBoosts: {},
+        isCrossfading: false, // Flag to prevent multiple crossfade calls
         // Kalender State
         currentDate: new Date(),
         events: {}, // { 'JJJJ-MM-DD': [{ machine, eventType }] }
@@ -224,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             await loadPlaylist();
-            loadStateFromLocalStorage();
+            await loadStateFromLocalStorage();
             setupEventListeners();
             updateWelcomeGreeting();
             updateOfflineStatus();
@@ -392,6 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         state.currentTrack = nextTrack;
         state.nextTrack = null;
+        state.isCrossfading = false; // Reset crossfade flag for new track
         
         const activePlayer = players[activePlayerIndex];
         activePlayer.src = state.currentTrack.src;
@@ -419,6 +421,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function crossfade() {
         if (!state.nextTrack) { playNextTrack(); return; }
+        if (state.isCrossfading) return; // Prevent multiple crossfades
+        
+        state.isCrossfading = true;
         const inactivePlayerIndex = 1 - activePlayerIndex;
         const activePlayer = players[activePlayerIndex];
         const nextPlayer = players[inactivePlayerIndex];
@@ -451,6 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
                          activePlayer.pause();
                          activePlayer.volume = finalVolume;
                          clearInterval(fadeInterval);
+                         state.isCrossfading = false; // Reset the flag
                          preloadNextTrack();
                      }
                  }, intervalTime);
@@ -554,7 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!audio.duration || !state.isPlaying || !audio.currentTime) return;
 
         const crossfadeTime = state.config.crossfadeSeconds || 2;
-        if ((audio.duration - audio.currentTime) < crossfadeTime) {
+        if ((audio.duration - audio.currentTime) < crossfadeTime && !state.isCrossfading) {
             crossfade();
             return;
         }
@@ -623,14 +629,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function loadStateFromLocalStorage() {
+    async function loadStateFromLocalStorage() {
         state.likes = safeLocalStorage('likes') || {};
-        state.messages = safeLocalStorage('messages') || [];
-        state.songDedications = safeLocalStorage('songDedications') || [];
         state.history = safeLocalStorage('history') || [];
         state.reviews = safeLocalStorage('reviews') || {};
         state.events = safeLocalStorage('events') || {};
         applyTheme(safeLocalStorage('theme') || 'arburg');
+        
+        // Load messages and song dedications from database with localStorage fallback
+        await loadMessagesFromDatabase();
+        await loadSongDedicationsFromDatabase();
     }
 
     function saveHistory() { safeLocalStorage('history', state.history); }
@@ -640,6 +648,99 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveSongDedications() { safeLocalStorage('songDedications', state.songDedications); }
     function saveReviews() { safeLocalStorage('reviews', state.reviews); }
     function saveEvents() { safeLocalStorage('events', state.events); }
+
+    // --- Database API Integration ---
+    async function apiRequest(action, data = null, method = 'GET') {
+        try {
+            const config = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+            
+            if (data && method === 'POST') {
+                config.body = JSON.stringify(data);
+            }
+            
+            const response = await fetch(`./api.php?action=${action}`, config);
+            const result = await response.json();
+            
+            if (result.fallback) {
+                console.warn('Database operation failed, using localStorage fallback');
+                return null;
+            }
+            
+            return result;
+        } catch (error) {
+            console.warn('API request failed, using localStorage fallback:', error);
+            return null;
+        }
+    }
+
+    async function loadMessagesFromDatabase() {
+        const result = await apiRequest('messages');
+        if (result && result.success) {
+            state.messages = result.messages;
+            renderMessages();
+        } else {
+            // Fallback to localStorage
+            state.messages = safeLocalStorage('messages') || [];
+        }
+    }
+
+    async function addMessageToDatabase(author, text, isAI = false) {
+        const messageData = { author, text, isAI };
+        const result = await apiRequest('message', messageData, 'POST');
+        
+        if (result && result.success) {
+            // Reload messages from database to get latest
+            await loadMessagesFromDatabase();
+        } else {
+            // Fallback to localStorage
+            state.messages.push({ 
+                author, 
+                text, 
+                isAI, 
+                timestamp: new Date().toLocaleTimeString() 
+            });
+            state.messages = state.messages.slice(-10);
+            saveMessages();
+            renderMessages();
+        }
+    }
+
+    async function loadSongDedicationsFromDatabase() {
+        const result = await apiRequest('dedications');
+        if (result && result.success) {
+            state.songDedications = result.dedications;
+            renderSongDedications();
+        } else {
+            // Fallback to localStorage
+            state.songDedications = safeLocalStorage('songDedications') || [];
+        }
+    }
+
+    async function addSongDedicationToDatabase(words, name) {
+        const dedicationData = { words, name };
+        const result = await apiRequest('dedication', dedicationData, 'POST');
+        
+        if (result && result.success) {
+            // Reload dedications from database to get latest
+            await loadSongDedicationsFromDatabase();
+        } else {
+            // Fallback to localStorage
+            const entry = {
+                words: sanitizeHTML(words),
+                name: sanitizeHTML(name),
+                timestamp: new Date().toLocaleString(state.language === 'nl' ? 'nl-NL' : 'pl-PL')
+            };
+            state.songDedications.push(entry);
+            state.songDedications = state.songDedications.slice(-15);
+            saveSongDedications();
+            renderSongDedications();
+        }
+    }
 
     // --- Beoordelings- en Recensiesysteem ---
     function renderRatingUI(trackId) {
@@ -825,11 +926,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
     }
 
-    function addMessage(author, text, isAI = false) {
-        state.messages.push({ author, text, isAI, timestamp: new Date().toLocaleTimeString() });
-        state.messages = state.messages.slice(-10);
-        saveMessages();
-        renderMessages();
+    async function addMessage(author, text, isAI = false) {
+        await addMessageToDatabase(author, text, isAI);
     }
 
     function renderMessages() {
@@ -852,7 +950,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.sidePanel.songDedicationFeedback.classList.toggle('error', Boolean(isError));
     }
 
-    function handleSongDedicationSubmit(event) {
+    async function handleSongDedicationSubmit(event) {
         event.preventDefault();
         if (!dom.sidePanel.songWordsInput || !dom.sidePanel.songNameInput) return;
 
@@ -872,17 +970,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const entry = {
-            words: sanitizeHTML(words),
-            name: sanitizeHTML(name),
-            timestamp: new Date().toLocaleString(state.language === 'nl' ? 'nl-NL' : 'pl-PL')
-        };
-
-        state.songDedications.push(entry);
-        state.songDedications = state.songDedications.slice(-15);
         state.lastSongDedicationTimestamp = now;
-        saveSongDedications();
-        renderSongDedications();
+        await addSongDedicationToDatabase(words, name);
 
         if (dom.sidePanel.songDedicationForm) dom.sidePanel.songDedicationForm.reset();
         setSongDedicationFeedback('songDedicationThanks', false);
@@ -1215,6 +1304,15 @@ document.addEventListener('DOMContentLoaded', () => {
             navigator.serviceWorker.register('./sw.js')
                 .then(reg => console.log('Service Worker geregistreerd:', reg.scope))
                 .catch(err => console.error('Service Worker registratie mislukt:', err));
+        });
+        
+        // Listen for cache update messages from service worker
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data && event.data.type === 'CACHE_UPDATED') {
+                console.log('[App] Cache updated to version:', event.data.version);
+                // Optionally reload the page to ensure fresh content
+                // window.location.reload();
+            }
         });
     }
 

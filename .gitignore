@@ -1,0 +1,23 @@
+# Ignore sensitive configuration files (but keep the example)
+config.php
+
+# Ignore node_modules and dependencies
+node_modules/
+pnpm-lock.yaml
+
+# Ignore build artifacts
+dist/
+.vite/
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore logs
+*.log
