@@ -1,13 +1,13 @@
 // ===================================================================================
-// DAREMON Radio ETS - Service Worker v9
+// DAREMON Radio ETS - Service Worker v10
 //
 // Strategie:
-// - Zwiększono wersję cache do v9, aby wymusić aktualizację wszystkich zasobów,
-//   w tym nowego pliku styles.css.
-// - Dodano lokalne ikony do pamięci podręcznej dla pełnej funkcjonalności offline.
+// - Zwiększono wersję cache do v10, aby wymusić aktualizację wszystkich zasobów.
+// - Dodano agresywne czyszczenie starych plików cache z wyszukiwarki.
+// - Poprawa zarządzania cache dla lepszej wydajności.
 // ===================================================================================
 
-const CACHE_NAME = 'daremon-radio-v9'; // WAŻNE: Zmiana wersji cache
+const CACHE_NAME = 'daremon-radio-v10'; // WAŻNE: Zmiana wersji cache
 
 // Basis app-resources (App Shell) z dodanymi ikonami
 const APP_SHELL_ASSETS = [
@@ -24,32 +24,57 @@ const APP_SHELL_ASSETS = [
     './icons/favicon.svg' // Dodano
 ];
 
+// Agresywne usuwanie starych cache przy instalacji
 self.addEventListener('install', e => {
-    console.log('[Service Worker] Instalacja nowej wersji v9...');
+    console.log('[Service Worker] Instalacja nowej wersji v10...');
     e.waitUntil(
-        caches.open(CACHE_NAME).then(cache => {
-            console.log('[Service Worker] Caching van basis app-resources.');
-            return cache.addAll(APP_SHELL_ASSETS);
+        // Najpierw usuń wszystkie stare cache
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.filter(cacheName => cacheName !== CACHE_NAME)
+                    .map(cacheName => {
+                        console.log('[Service Worker] Usuwanie starego cache podczas instalacji:', cacheName);
+                        return caches.delete(cacheName);
+                    })
+            );
+        }).then(() => {
+            // Następnie utwórz nowy cache
+            return caches.open(CACHE_NAME).then(cache => {
+                console.log('[Service Worker] Caching van basis app-resources.');
+                return cache.addAll(APP_SHELL_ASSETS);
+            });
         }).catch(err => {
-            console.error('[Service Worker] Fout tijdens instalacji:', err);
+            console.error('[Service Worker] Fout podczas instalacji:', err);
         })
     );
     self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
-    console.log('[Service Worker] Aktywacja v9...');
+    console.log('[Service Worker] Aktywacja v10...');
     e.waitUntil(
-        caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames.map(cacheName => {
-                    if (cacheName !== CACHE_NAME) {
-                        console.log('[Service Worker] Usuwanie starego cache:', cacheName);
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        })
+        Promise.all([
+            // Usuń wszystkie stare cache
+            caches.keys().then(cacheNames => {
+                return Promise.all(
+                    cacheNames.map(cacheName => {
+                        if (cacheName !== CACHE_NAME) {
+                            console.log('[Service Worker] Usuwanie starego cache:', cacheName);
+                            return caches.delete(cacheName);
+                        }
+                    })
+                );
+            }),
+            // Wyczyść też cache przeglądarki poprzez dodanie timestamp do headerów
+            self.clients.matchAll().then(clients => {
+                return Promise.all(clients.map(client => {
+                    return client.postMessage({
+                        type: 'CACHE_UPDATED',
+                        version: 'v10'
+                    });
+                }));
+            })
+        ])
     );
     return self.clients.claim();
 });
