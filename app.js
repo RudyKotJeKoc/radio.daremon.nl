@@ -114,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         likes: {},
         tempBoosts: {},
         isCrossfading: false, // Flag to prevent multiple crossfade calls
+        isNextTrackLocked: false,
         // Kalender State
         currentDate: new Date(),
         events: {}, // { 'JJJJ-MM-DD': [{ machine, eventType }] }
@@ -376,6 +377,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function playTrackNow(track) {
         if (!track || track.id === state.currentTrack?.id) return;
         state.nextTrack = track;
+        state.isNextTrackLocked = true;
+        const inactivePlayerIndex = 1 - activePlayerIndex;
+        if (track.src) {
+            players[inactivePlayerIndex].src = track.src;
+        }
         const activePlayer = players[activePlayerIndex];
         if (state.isPlaying && activePlayer.currentTime > 0) {
             crossfade();
@@ -394,6 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.currentTrack = nextTrack;
         state.nextTrack = null;
         state.isCrossfading = false; // Reset crossfade flag for new track
+        state.isNextTrackLocked = false;
         
         const activePlayer = players[activePlayerIndex];
         activePlayer.src = state.currentTrack.src;
@@ -407,11 +414,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateUIForNewTrack();
                 updateHistory();
                 preloadNextTrack();
-            }).catch(handleAudioError);
+            }).catch(error => {
+                state.isNextTrackLocked = false;
+                handleAudioError(error);
+            });
         }
     }
 
     function preloadNextTrack() {
+        if (state.isNextTrackLocked) return;
         state.nextTrack = selectNextTrack(true);
         if (state.nextTrack) {
             const inactivePlayerIndex = 1 - activePlayerIndex;
@@ -457,11 +468,15 @@ document.addEventListener('DOMContentLoaded', () => {
                          activePlayer.volume = finalVolume;
                          clearInterval(fadeInterval);
                          state.isCrossfading = false; // Reset the flag
+                         state.isNextTrackLocked = false;
                          preloadNextTrack();
                      }
                  }, intervalTime);
 
-            }).catch(handleAudioError);
+            }).catch(error => {
+                state.isNextTrackLocked = false;
+                handleAudioError(error);
+            });
         }
     }
     
@@ -1299,6 +1314,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // --- Service Worker ---
+    if (typeof window !== 'undefined') {
+        window.__appTestAPI = {
+            playTrackNow,
+            preloadNextTrack,
+            crossfade,
+            playNextTrack,
+            getState: () => state,
+            getPlayers: () => players,
+            getActivePlayerIndex: () => activePlayerIndex
+        };
+    }
+
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js')
