@@ -377,6 +377,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!track || track.id === state.currentTrack?.id) return;
         state.nextTrack = track;
         const activePlayer = players[activePlayerIndex];
+        const inactivePlayer = players[1 - activePlayerIndex];
+        if (inactivePlayer && track.src) {
+            inactivePlayer.src = track.src;
+        }
         if (state.isPlaying && activePlayer.currentTime > 0) {
             crossfade();
         } else {
@@ -412,10 +416,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function preloadNextTrack() {
-        state.nextTrack = selectNextTrack(true);
+        if (state.isCrossfading) return;
+
         if (state.nextTrack) {
             const inactivePlayerIndex = 1 - activePlayerIndex;
-            players[inactivePlayerIndex].src = state.nextTrack.src;
+            if (state.nextTrack.src && players[inactivePlayerIndex].src !== state.nextTrack.src) {
+                players[inactivePlayerIndex].src = state.nextTrack.src;
+            }
+            return;
+        }
+
+        const upcomingTrack = selectNextTrack(true);
+        if (upcomingTrack) {
+            state.nextTrack = upcomingTrack;
+            const inactivePlayerIndex = 1 - activePlayerIndex;
+            players[inactivePlayerIndex].src = upcomingTrack.src;
         }
     }
 
