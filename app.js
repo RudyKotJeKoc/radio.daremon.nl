@@ -106,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reviews: {},
         currentTrack: null,
         nextTrack: null,
+        nextTrackIsManual: false,
         isPlaying: false,
         isInitialized: false,
         lastMessageTimestamp: 0,
@@ -376,6 +377,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function playTrackNow(track) {
         if (!track || track.id === state.currentTrack?.id) return;
         state.nextTrack = track;
+        state.nextTrackIsManual = true;
+        const inactivePlayerIndex = 1 - activePlayerIndex;
+        players[inactivePlayerIndex].src = track.src;
         const activePlayer = players[activePlayerIndex];
         if (state.isPlaying && activePlayer.currentTime > 0) {
             crossfade();
@@ -393,8 +397,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         state.currentTrack = nextTrack;
         state.nextTrack = null;
+        state.nextTrackIsManual = false;
         state.isCrossfading = false; // Reset crossfade flag for new track
-        
+
         const activePlayer = players[activePlayerIndex];
         activePlayer.src = state.currentTrack.src;
         const baseVolume = dom.player.volumeSlider ? parseFloat(dom.player.volumeSlider.value) : 0.5;
@@ -412,10 +417,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function preloadNextTrack() {
-        state.nextTrack = selectNextTrack(true);
-        if (state.nextTrack) {
+        if (state.isCrossfading || state.nextTrackIsManual) return;
+
+        const upcomingTrack = state.nextTrack || selectNextTrack(true);
+        if (upcomingTrack) {
+            state.nextTrack = upcomingTrack;
+            state.nextTrackIsManual = false;
             const inactivePlayerIndex = 1 - activePlayerIndex;
-            players[inactivePlayerIndex].src = state.nextTrack.src;
+            players[inactivePlayerIndex].src = upcomingTrack.src;
         }
     }
 
@@ -436,9 +445,10 @@ document.addEventListener('DOMContentLoaded', () => {
             playPromise.then(() => {
                  state.currentTrack = state.nextTrack;
                  state.nextTrack = null;
+                 state.nextTrackIsManual = false;
                  updateUIForNewTrack();
                  updateHistory();
-                 
+
                  const fadeDuration = (state.config.crossfadeSeconds || 2) * 1000;
                  const intervalTime = 50;
                  const steps = fadeDuration / intervalTime;
@@ -1305,7 +1315,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 .then(reg => console.log('Service Worker geregistreerd:', reg.scope))
                 .catch(err => console.error('Service Worker registratie mislukt:', err));
         });
-        
+
         // Listen for cache update messages from service worker
         navigator.serviceWorker.addEventListener('message', event => {
             if (event.data && event.data.type === 'CACHE_UPDATED') {
@@ -1314,6 +1324,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 // window.location.reload();
             }
         });
+    }
+
+    if (typeof window !== 'undefined') {
+        window.__radioTestHooks = {
+            getState: () => state,
+            getPlayers: () => players,
+            playTrackNow,
+            playNextTrack,
+            preloadNextTrack,
+            crossfade,
+            startRadio,
+            getActivePlayerIndex: () => activePlayerIndex,
+            setActivePlayerIndex: index => { activePlayerIndex = index; }
+        };
     }
 
     initialize();
