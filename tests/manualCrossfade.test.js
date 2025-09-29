@@ -174,9 +174,6 @@ describe('manual track selection during playback', () => {
     });
 
     vi.stubGlobal('fetch', fetchMock);
-    window.fetch = fetchMock;
-    globalThis.fetch = fetchMock;
-    global.fetch = fetchMock;
     IntersectionObserverStub = class {
       observe() {}
       unobserve() {}
