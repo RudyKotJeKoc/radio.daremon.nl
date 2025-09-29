@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "vite --mode dev",
     "build": "vite build",
-    "lint": "echo 'linted'"
+    "lint": "echo 'linted'",
+    "test": "vitest run --environment jsdom"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.10.0",
   "devDependencies": {
-    "vite": "^6.3.5"
+    "jsdom": "^27.0.0",
+    "vite": "^6.3.5",
+    "vitest": "^2.1.5"
   }
 }
-
