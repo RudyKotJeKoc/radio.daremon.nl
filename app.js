@@ -681,7 +681,12 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadMessagesFromDatabase() {
         const result = await apiRequest('messages');
         if (result && result.success) {
-            state.messages = result.messages;
+            state.messages = result.messages.map(msg => ({
+                author: msg.author,
+                text: msg.text,
+                isAI: msg.isAI,
+                timestamp: msg.timestamp
+            }));
             renderMessages();
         } else {
             // Fallback to localStorage
@@ -698,11 +703,11 @@ document.addEventListener('DOMContentLoaded', () => {
             await loadMessagesFromDatabase();
         } else {
             // Fallback to localStorage
-            state.messages.push({ 
-                author, 
-                text, 
-                isAI, 
-                timestamp: new Date().toLocaleTimeString() 
+            state.messages.push({
+                author,
+                text,
+                isAI,
+                timestamp: new Date().toLocaleTimeString()
             });
             state.messages = state.messages.slice(-10);
             saveMessages();
@@ -713,7 +718,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadSongDedicationsFromDatabase() {
         const result = await apiRequest('dedications');
         if (result && result.success) {
-            state.songDedications = result.dedications;
+            state.songDedications = result.dedications.map(entry => ({
+                words: entry.words,
+                name: entry.name,
+                timestamp: entry.timestamp
+            }));
             renderSongDedications();
         } else {
             // Fallback to localStorage
@@ -731,8 +740,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // Fallback to localStorage
             const entry = {
-                words: sanitizeHTML(words),
-                name: sanitizeHTML(name),
+                words,
+                name,
                 timestamp: new Date().toLocaleString(state.language === 'nl' ? 'nl-NL' : 'pl-PL')
             };
             state.songDedications.push(entry);
@@ -902,10 +911,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (!dom.sidePanel.djMessageInput) return;
         const message = dom.sidePanel.djMessageInput.value;
-        if (!message.trim()) return;
+        const trimmedMessage = message.trim();
+        if (!trimmedMessage) return;
 
         state.lastMessageTimestamp = now;
-        addMessage("Jij", sanitizeHTML(message));
+        addMessage("Jij", trimmedMessage);
         if (dom.sidePanel.djMessageForm) dom.sidePanel.djMessageForm.reset();
 
         const keywords = { 'cleanroom': 'plasdan', 'plasdan': 'plasdan', 'bmw': 'bmw-kut' };
@@ -932,15 +942,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderMessages() {
         if (!dom.sidePanel.messagesList) return;
-        dom.sidePanel.messagesList.innerHTML = '';
+        dom.sidePanel.messagesList.textContent = '';
         state.messages.forEach(msg => {
+            const authorText = typeof msg?.author === 'string' ? msg.author : '';
+            const messageBody = typeof msg?.text === 'string' ? msg.text : '';
+            const timestampText = typeof msg?.timestamp === 'string' ? msg.timestamp : '';
+
             const li = document.createElement('li');
+            li.setAttribute('role', 'listitem');
             if (msg.isAI) li.classList.add('ai-response');
-            li.innerHTML = `<b>${msg.author}:</b> ${msg.text} <i>(${msg.timestamp})</i>`;
+
+            const authorEl = document.createElement('strong');
+            authorEl.textContent = authorText ? `${authorText}:` : '';
+            authorEl.setAttribute('aria-label', authorText);
+
+            const messageText = document.createElement('span');
+            messageText.textContent = messageBody ? ` ${messageBody}` : '';
+
+            const timeEl = document.createElement('i');
+            timeEl.textContent = timestampText ? ` (${timestampText})` : '';
+            timeEl.setAttribute('aria-label', timestampText);
+
+            li.appendChild(authorEl);
+            li.appendChild(messageText);
+            li.appendChild(timeEl);
             dom.sidePanel.messagesList.appendChild(li);
         });
-        if(dom.sidePanel.messagesList.lastChild) {
-            dom.sidePanel.messagesList.lastChild.scrollIntoView({ behavior: 'smooth' });
+        const lastChild = dom.sidePanel.messagesList.lastChild;
+        if (lastChild && typeof lastChild.scrollIntoView === 'function') {
+            lastChild.scrollIntoView({ behavior: 'smooth' });
         }
     }
 
@@ -979,30 +1009,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderSongDedications() {
         if (!dom.sidePanel.songDedicationList) return;
-        dom.sidePanel.songDedicationList.innerHTML = '';
+        dom.sidePanel.songDedicationList.textContent = '';
 
         if (!state.songDedications.length) {
             const emptyItem = document.createElement('li');
             emptyItem.classList.add('empty-state');
+            emptyItem.setAttribute('role', 'listitem');
             emptyItem.textContent = t('songDedicationEmpty');
             dom.sidePanel.songDedicationList.appendChild(emptyItem);
             return;
         }
 
         [...state.songDedications].reverse().forEach(entry => {
+            const nameText = typeof entry?.name === 'string' ? entry.name : '';
+            const wordsText = typeof entry?.words === 'string' ? entry.words : '';
+            const timestampText = typeof entry?.timestamp === 'string' ? entry.timestamp : '';
+
             const item = document.createElement('li');
+            item.setAttribute('role', 'listitem');
 
             const nameEl = document.createElement('span');
             nameEl.classList.add('song-dedication-name');
-            nameEl.innerHTML = entry.name;
+            nameEl.textContent = nameText;
+            nameEl.setAttribute('aria-label', nameText);
 
             const wordsEl = document.createElement('span');
             wordsEl.classList.add('song-dedication-words');
-            wordsEl.innerHTML = entry.words;
+            wordsEl.textContent = wordsText;
 
             const timeEl = document.createElement('span');
             timeEl.classList.add('song-dedication-time');
-            timeEl.textContent = t('songDedicationTime', { timestamp: entry.timestamp });
+            timeEl.textContent = t('songDedicationTime', { timestamp: timestampText });
+            timeEl.setAttribute('aria-label', timestampText);
 
             item.appendChild(nameEl);
             item.appendChild(wordsEl);
@@ -1316,5 +1354,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    initialize();
+    if (typeof window !== 'undefined') {
+        window.__radioAppTestHooks = {
+            setMessages(messages) {
+                state.messages = Array.isArray(messages) ? messages : [];
+            },
+            setSongDedications(dedications) {
+                state.songDedications = Array.isArray(dedications) ? dedications : [];
+            },
+            renderMessages: () => renderMessages(),
+            renderSongDedications: () => renderSongDedications(),
+            getMessagesList: () => dom.sidePanel.messagesList,
+            getSongDedicationList: () => dom.sidePanel.songDedicationList
+        };
+    }
+
+    if (!(typeof window !== 'undefined' && window.__SKIP_APP_INITIALIZE__)) {
+        initialize();
+    }
 });
