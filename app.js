@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         likes: {},
         tempBoosts: {},
         isCrossfading: false, // Flag to prevent multiple crossfade calls
-        nextTrackLocked: false,
+
         // Kalender State
         currentDate: new Date(),
         events: {}, // { 'JJJJ-MM-DD': [{ machine, eventType }] }
@@ -377,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function playTrackNow(track) {
         if (!track || track.id === state.currentTrack?.id) return;
         state.nextTrack = track;
-        state.nextTrackLocked = true;
+
         const inactivePlayerIndex = 1 - activePlayerIndex;
         players[inactivePlayerIndex].src = track.src;
         const activePlayer = players[activePlayerIndex];
@@ -398,7 +398,6 @@ document.addEventListener('DOMContentLoaded', () => {
         state.currentTrack = nextTrack;
         state.nextTrack = null;
         state.isCrossfading = false; // Reset crossfade flag for new track
-        state.nextTrackLocked = false;
 
         const activePlayer = players[activePlayerIndex];
         activePlayer.src = state.currentTrack.src;
@@ -417,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function preloadNextTrack() {
-        if (state.isCrossfading || state.nextTrackLocked) return;
+
         state.nextTrack = selectNextTrack(true);
         if (state.nextTrack) {
             const inactivePlayerIndex = 1 - activePlayerIndex;
@@ -464,6 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
                          activePlayer.volume = finalVolume;
                          clearInterval(fadeInterval);
                          state.isCrossfading = false; // Reset the flag
+                         state.manualTrackPending = false;
                          preloadNextTrack();
                      }
                  }, intervalTime);
@@ -1332,6 +1332,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 // window.location.reload();
             }
         });
+    }
+
+    if (typeof window !== 'undefined') {
+        window.__radioAppTestAPI__ = {
+            get state() { return state; },
+            players,
+            playTrackNow,
+            playNextTrack,
+            crossfade,
+            preloadNextTrack,
+            startRadio,
+            get activePlayerIndex() { return activePlayerIndex; },
+            setActivePlayerIndex(index) { activePlayerIndex = index; }
+        };
     }
 
     initialize();
