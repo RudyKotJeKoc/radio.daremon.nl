@@ -377,8 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function playTrackNow(track) {
         if (!track || track.id === state.currentTrack?.id) return;
         state.nextTrack = track;
-
-        const inactivePlayerIndex = 1 - activePlayerIndex;
+const inactivePlayerIndex = 1 - activePlayerIndex;
         players[inactivePlayerIndex].src = track.src;
         const activePlayer = players[activePlayerIndex];
         if (state.isPlaying && activePlayer.currentTime > 0) {
@@ -417,8 +416,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function preloadNextTrack() {
 
+
         state.nextTrack = selectNextTrack(true);
+
         if (state.nextTrack) {
+            const inactiveIndex = 1 - activePlayerIndex;
+            const inactivePlayer = players[inactiveIndex];
+            if (inactivePlayer && inactivePlayer.src !== state.nextTrack.src) {
+                inactivePlayer.src = state.nextTrack.src;
+            }
+            return;
+        }
+
+        const upcomingTrack = selectNextTrack(true);
+        if (upcomingTrack) {
+            state.nextTrack = upcomingTrack;
             const inactivePlayerIndex = 1 - activePlayerIndex;
             players[inactivePlayerIndex].src = state.nextTrack.src;
         }
@@ -1305,6 +1317,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+
     if (typeof window !== 'undefined') {
         window.__APP_TEST_HOOKS = {
             getState: () => state,
