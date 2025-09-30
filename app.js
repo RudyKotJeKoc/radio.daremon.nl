@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         likes: {},
         tempBoosts: {},
         isCrossfading: false, // Flag to prevent multiple crossfade calls
-        manualTrackPending: false,
+
         // Kalender State
         currentDate: new Date(),
         events: {}, // { 'JJJJ-MM-DD': [{ machine, eventType }] }
@@ -377,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function playTrackNow(track) {
         if (!track || track.id === state.currentTrack?.id) return;
         state.nextTrack = track;
-        state.manualTrackPending = true;
+
         const inactivePlayerIndex = 1 - activePlayerIndex;
         players[inactivePlayerIndex].src = track.src;
         const activePlayer = players[activePlayerIndex];
@@ -398,8 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.currentTrack = nextTrack;
         state.nextTrack = null;
         state.isCrossfading = false; // Reset crossfade flag for new track
-        state.manualTrackPending = false;
-        
+
         const activePlayer = players[activePlayerIndex];
         activePlayer.src = state.currentTrack.src;
         const baseVolume = dom.player.volumeSlider ? parseFloat(dom.player.volumeSlider.value) : 0.5;
@@ -417,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function preloadNextTrack() {
-        if (state.manualTrackPending || state.isCrossfading) { return; }
+
         state.nextTrack = selectNextTrack(true);
         if (state.nextTrack) {
             const inactivePlayerIndex = 1 - activePlayerIndex;
@@ -442,6 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
             playPromise.then(() => {
                  state.currentTrack = state.nextTrack;
                  state.nextTrack = null;
+                 state.nextTrackLocked = false;
                  updateUIForNewTrack();
                  updateHistory();
                  
@@ -1305,6 +1305,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    if (typeof window !== 'undefined') {
+        window.__APP_TEST_HOOKS = {
+            getState: () => state,
+            getPlayers: () => players,
+            getActivePlayerIndex: () => activePlayerIndex,
+            startRadio,
+            playTrackNow,
+            playNextTrack,
+        };
+    }
+
     // --- Service Worker ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
