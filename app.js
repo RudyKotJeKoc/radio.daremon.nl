@@ -114,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         likes: {},
         tempBoosts: {},
         isCrossfading: false, // Flag to prevent multiple crossfade calls
+
         // Kalender State
         currentDate: new Date(),
         events: {}, // { 'JJJJ-MM-DD': [{ machine, eventType }] }
@@ -376,6 +377,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function playTrackNow(track) {
         if (!track || track.id === state.currentTrack?.id) return;
         state.nextTrack = track;
+const inactivePlayerIndex = 1 - activePlayerIndex;
+        players[inactivePlayerIndex].src = track.src;
         const activePlayer = players[activePlayerIndex];
         if (state.isPlaying && activePlayer.currentTime > 0) {
             crossfade();
@@ -394,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.currentTrack = nextTrack;
         state.nextTrack = null;
         state.isCrossfading = false; // Reset crossfade flag for new track
-        
+
         const activePlayer = players[activePlayerIndex];
         activePlayer.src = state.currentTrack.src;
         const baseVolume = dom.player.volumeSlider ? parseFloat(dom.player.volumeSlider.value) : 0.5;
@@ -412,8 +415,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function preloadNextTrack() {
+
+
         state.nextTrack = selectNextTrack(true);
+
         if (state.nextTrack) {
+            const inactiveIndex = 1 - activePlayerIndex;
+            const inactivePlayer = players[inactiveIndex];
+            if (inactivePlayer && inactivePlayer.src !== state.nextTrack.src) {
+                inactivePlayer.src = state.nextTrack.src;
+            }
+            return;
+        }
+
+        const upcomingTrack = selectNextTrack(true);
+        if (upcomingTrack) {
+            state.nextTrack = upcomingTrack;
             const inactivePlayerIndex = 1 - activePlayerIndex;
             players[inactivePlayerIndex].src = state.nextTrack.src;
         }
@@ -436,6 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
             playPromise.then(() => {
                  state.currentTrack = state.nextTrack;
                  state.nextTrack = null;
+                 state.nextTrackLocked = false;
                  updateUIForNewTrack();
                  updateHistory();
                  
@@ -457,6 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
                          activePlayer.volume = finalVolume;
                          clearInterval(fadeInterval);
                          state.isCrossfading = false; // Reset the flag
+                         state.manualTrackPending = false;
                          preloadNextTrack();
                      }
                  }, intervalTime);
@@ -1336,6 +1355,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+
+    if (typeof window !== 'undefined') {
+        window.__APP_TEST_HOOKS = {
+            getState: () => state,
+            getPlayers: () => players,
+            getActivePlayerIndex: () => activePlayerIndex,
+            startRadio,
+            playTrackNow,
+            playNextTrack,
+        };
+    }
+
     // --- Service Worker ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -1355,21 +1386,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (typeof window !== 'undefined') {
-        window.__radioAppTestHooks = {
-            setMessages(messages) {
-                state.messages = Array.isArray(messages) ? messages : [];
-            },
-            setSongDedications(dedications) {
-                state.songDedications = Array.isArray(dedications) ? dedications : [];
-            },
-            renderMessages: () => renderMessages(),
-            renderSongDedications: () => renderSongDedications(),
-            getMessagesList: () => dom.sidePanel.messagesList,
-            getSongDedicationList: () => dom.sidePanel.songDedicationList
+
+        window.__radioAppTestAPI__ = {
+            get state() { return state; },
+            players,
+            playTrackNow,
+            playNextTrack,
+            crossfade,
+            preloadNextTrack,
+            startRadio,
+            get activePlayerIndex() { return activePlayerIndex; },
+            setActivePlayerIndex(index) { activePlayerIndex = index; }
         };
     }
 
-    if (!(typeof window !== 'undefined' && window.__SKIP_APP_INITIALIZE__)) {
-        initialize();
-    }
+    initialize();
 });
