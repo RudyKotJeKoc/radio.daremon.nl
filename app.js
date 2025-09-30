@@ -376,6 +376,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function playTrackNow(track) {
         if (!track || track.id === state.currentTrack?.id) return;
         state.nextTrack = track;
+        const inactivePlayerIndex = 1 - activePlayerIndex;
+        const inactivePlayer = players[inactivePlayerIndex];
+        if (inactivePlayer && track.src) {
+            inactivePlayer.src = track.src;
+        }
         const activePlayer = players[activePlayerIndex];
         if (state.isPlaying && activePlayer.currentTime > 0) {
             crossfade();
@@ -412,8 +417,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function preloadNextTrack() {
-        state.nextTrack = selectNextTrack(true);
+        if (state.isCrossfading) {
+            return;
+        }
+
         if (state.nextTrack) {
+            const inactiveIndex = 1 - activePlayerIndex;
+            const inactivePlayer = players[inactiveIndex];
+            if (inactivePlayer && inactivePlayer.src !== state.nextTrack.src) {
+                inactivePlayer.src = state.nextTrack.src;
+            }
+            return;
+        }
+
+        const upcomingTrack = selectNextTrack(true);
+        if (upcomingTrack) {
+            state.nextTrack = upcomingTrack;
             const inactivePlayerIndex = 1 - activePlayerIndex;
             players[inactivePlayerIndex].src = state.nextTrack.src;
         }
@@ -1298,6 +1317,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    if (typeof window !== 'undefined' && window.__ENABLE_TEST_EXPORTS__) {
+        window.__radioAppTestExports = {
+            playTrackNow,
+            preloadNextTrack,
+            getState: () => state,
+            getPlayers: () => players,
+            getActivePlayerIndex: () => activePlayerIndex,
+            setActivePlayerIndex: (index) => { activePlayerIndex = index; },
+        };
+    }
+
     // --- Service Worker ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
