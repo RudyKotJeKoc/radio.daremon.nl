@@ -86,7 +86,7 @@ switch ($method) {
     
     case 'POST':
         $input = json_decode(file_get_contents('php://input'), true);
-        
+
         if ($action === 'message') {
             addMessage($pdo, $input);
         } elseif ($action === 'dedication') {
@@ -102,6 +102,23 @@ switch ($method) {
         echo json_encode(['error' => 'Method not allowed']);
 }
 
+function sanitizeForStorage($value) {
+    if (is_array($value)) {
+        return array_map('sanitizeForStorage', $value);
+    }
+
+    $stringValue = trim((string)($value ?? ''));
+    return htmlspecialchars($stringValue, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function decodeFromStorage($value) {
+    if (is_array($value)) {
+        return array_map('decodeFromStorage', $value);
+    }
+
+    return htmlspecialchars_decode((string)($value ?? ''), ENT_QUOTES);
+}
+
 function getMessages($pdo) {
     try {
         $stmt = $pdo->query("SELECT * FROM messages ORDER BY timestamp DESC LIMIT 10");
@@ -110,8 +127,8 @@ function getMessages($pdo) {
         // Convert to format expected by frontend
         $formatted = array_map(function($msg) {
             return [
-                'author' => $msg['author'],
-                'text' => $msg['text'],
+                'author' => decodeFromStorage($msg['author']),
+                'text' => decodeFromStorage($msg['text']),
                 'isAI' => (bool)$msg['is_ai'],
                 'timestamp' => date('H:i:s', strtotime($msg['timestamp']))
             ];
@@ -134,9 +151,9 @@ function addMessage($pdo, $input) {
     try {
         $stmt = $pdo->prepare("INSERT INTO messages (author, text, is_ai) VALUES (?, ?, ?)");
         $stmt->execute([
-            $input['author'],
-            $input['text'],
-            $input['isAI'] ?? false
+            sanitizeForStorage($input['author']),
+            sanitizeForStorage($input['text']),
+            !empty($input['isAI'])
         ]);
         
         echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]);
@@ -154,8 +171,8 @@ function getDedications($pdo) {
         // Convert to format expected by frontend
         $formatted = array_map(function($ded) {
             return [
-                'words' => $ded['words'],
-                'name' => $ded['name'],
+                'words' => decodeFromStorage($ded['words']),
+                'name' => decodeFromStorage($ded['name']),
                 'timestamp' => date('d.m.Y H:i', strtotime($ded['timestamp']))
             ];
         }, array_reverse($dedications));
@@ -177,8 +194,8 @@ function addDedication($pdo, $input) {
     try {
         $stmt = $pdo->prepare("INSERT INTO song_dedications (words, name) VALUES (?, ?)");
         $stmt->execute([
-            $input['words'],
-            $input['name']
+            sanitizeForStorage($input['words']),
+            sanitizeForStorage($input['name'])
         ]);
         
         echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]);
