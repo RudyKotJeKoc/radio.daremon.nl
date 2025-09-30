@@ -174,16 +174,6 @@ describe('manual track selection during playback', () => {
     });
 
     vi.stubGlobal('fetch', fetchMock);
-    IntersectionObserverStub = class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-      takeRecords() { return []; }
-    };
-    window.IntersectionObserver = IntersectionObserverStub;
-    globalThis.IntersectionObserver = IntersectionObserverStub;
-    global.IntersectionObserver = IntersectionObserverStub;
-    vi.stubGlobal('IntersectionObserver', IntersectionObserverStub);
     vi.stubGlobal('Audio', MockAudio);
 
     randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
