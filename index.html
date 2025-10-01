@@ -106,7 +106,56 @@
                 </header>
 
                 <section id="now-playing-section" class="content-box">
-                    <div id="player-ui">
+                    <div id="advanced-visualizer">
+                        <!-- Canvas dla efektów -->
+                        <canvas id="sunburst-canvas"></canvas>
+                        <canvas id="particles-canvas"></canvas>
+                        <canvas id="equalizer-canvas"></canvas>
+                        
+                        <!-- Centralne logo z przyciskami -->
+                        <div id="center-logo">
+                            <div class="logo-background"></div>
+                            <div class="target-rings">
+                                <div class="ring ring-1"></div>
+                                <div class="ring ring-2"></div>
+                                <div class="ring ring-3"></div>
+                            </div>
+                            
+                            <div id="logo-content">
+                                <div class="logo-text">
+                                    <span class="ib-text">ib</span>
+                                    <span class="in-team">In Team</span>
+                                    <span class="betrouwbaar">Betrouwbaar</span>
+                                </div>
+                                
+                                <!-- Przyciski sterowania w środku logo -->
+                                <div id="center-controls">
+                                    <button id="center-play-pause" class="center-btn" aria-label="Play/Pause">
+                                        <svg class="play-icon" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z"/>
+                                        </svg>
+                                        <svg class="pause-icon hidden" viewBox="0 0 24 24">
+                                            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                
+                                <div class="daremon-text">
+                                    <span class="daremon">DAREMON</span>
+                                    <span class="solutions">SOLUTIONS</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Info o utworze (pod visualizerem) -->
+                        <div id="track-info-below">
+                            <h2 id="viz-track-title">Witamy w DAREMON Radio</h2>
+                            <h3 id="viz-track-artist">Najlepsza muzyka dla Ciebie</h3>
+                        </div>
+                    </div>
+                    
+                    <!-- Ukryte elementy dla kompatybilności z istniejącym kodem -->
+                    <div id="player-ui" style="display: none;">
                         <img id="track-cover" src="https://placehold.co/120x120/1A1A1A/008878?text=ETS" alt="Okładka aktualnego utworu">
                         <div id="track-info">
                             <h2 id="track-title" aria-live="polite" data-i18n-key="trackTitleDefault"></h2>
@@ -128,8 +177,10 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Pozostałe kontrolki (volume, next, like) -->
                     <div id="player-controls">
-                        <button id="play-pause-btn" class="control-btn" data-i18n-title="playPauseTooltip" data-i18n-aria-label="playPauseLabel">▶️</button>
+                        <button id="play-pause-btn" class="control-btn hidden" data-i18n-title="playPauseTooltip" data-i18n-aria-label="playPauseLabel">▶️</button>
                         <button id="next-btn" class="control-btn" data-i18n-title="nextTooltip" data-i18n-aria-label="nextLabel">⏭️</button>
                         <button id="like-btn" class="control-btn" data-i18n-title="likeTooltip" data-i18n-aria-label="likeLabel">👍 <span id="like-count">0</span></button>
                         <div id="volume-control" data-i18n-title="volumeTooltip">

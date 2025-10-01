@@ -447,3 +447,289 @@ body, #app-container, #main-content, #player-ui, #player-controls, #side-panel, 
     }
     .calendar-day { min-height: 80px; }
 }
+
+/* ===============================================
+   ADVANCED VISUALIZER - Styl jak na obrazie
+   =============================================== */
+
+#advanced-visualizer {
+    position: relative;
+    width: 100%;
+    height: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: linear-gradient(180deg, #001a33 0%, #000814 100%);
+    border-radius: 1rem;
+}
+
+/* Canvas layers */
+#sunburst-canvas,
+#particles-canvas,
+#equalizer-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+#sunburst-canvas { z-index: 1; }
+#particles-canvas { z-index: 2; }
+#equalizer-canvas { z-index: 0; }
+
+/* Centralne logo */
+#center-logo {
+    position: relative;
+    z-index: 10;
+    width: 400px;
+    height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-background {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 25, 47, 0.95);
+    border-radius: 30px;
+    backdrop-filter: blur(20px);
+    box-shadow: 
+        0 0 60px rgba(0, 136, 120, 0.3),
+        0 0 100px rgba(212, 255, 61, 0.2),
+        inset 0 0 60px rgba(0, 0, 0, 0.5);
+}
+
+/* Target rings (koncentryczne okręgi) */
+.target-rings {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ring {
+    position: absolute;
+    border: 3px solid rgba(0, 200, 255, 0.4);
+    border-radius: 50%;
+    animation: pulse-ring 3s ease-in-out infinite;
+}
+
+.ring-1 {
+    width: 80%;
+    height: 80%;
+    animation-delay: 0s;
+}
+
+.ring-2 {
+    width: 60%;
+    height: 60%;
+    animation-delay: 1s;
+}
+
+.ring-3 {
+    width: 40%;
+    height: 40%;
+    animation-delay: 2s;
+}
+
+@keyframes pulse-ring {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.4;
+        border-color: rgba(0, 200, 255, 0.4);
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+        border-color: rgba(212, 255, 61, 0.6);
+    }
+}
+
+/* Logo content */
+#logo-content {
+    position: relative;
+    z-index: 11;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    text-align: center;
+}
+
+.logo-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.ib-text {
+    font-size: 6rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, #e0f7fa 0%, #00bcd4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 0.8;
+    text-shadow: 0 0 30px rgba(0, 188, 212, 0.5);
+}
+
+.in-team,
+.betrouwbaar {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #00bcd4;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.in-team { margin-bottom: -5px; }
+
+/* Przyciski sterowania w środku */
+#center-controls {
+    margin: 20px 0;
+    position: relative;
+}
+
+.center-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%);
+    border: 4px solid rgba(212, 255, 61, 0.5);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 
+        0 0 30px rgba(0, 188, 212, 0.6),
+        0 0 60px rgba(212, 255, 61, 0.3);
+}
+
+.center-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 
+        0 0 40px rgba(0, 188, 212, 0.8),
+        0 0 80px rgba(212, 255, 61, 0.5);
+    border-color: rgba(212, 255, 61, 0.8);
+}
+
+.center-btn:active {
+    transform: scale(0.95);
+}
+
+.center-btn svg {
+    width: 32px;
+    height: 32px;
+    fill: white;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.center-btn .hidden {
+    display: none;
+}
+
+/* Daremon text */
+.daremon-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.daremon {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: white;
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+}
+
+.solutions {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: 6px;
+}
+
+/* Track info pod visualizerem */
+#track-info-below {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 5;
+}
+
+#viz-track-title {
+    font-size: 1.8rem;
+    color: var(--primary-accent);
+    margin: 0 0 5px 0;
+    text-shadow: 0 0 10px rgba(0, 136, 120, 0.5);
+}
+
+#viz-track-artist {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0;
+}
+
+/* Player controls pod visualizerem */
+#player-controls {
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #advanced-visualizer {
+        height: 500px;
+    }
+    
+    #center-logo {
+        width: 300px;
+        height: 300px;
+    }
+    
+    .ib-text {
+        font-size: 4rem;
+    }
+    
+    .in-team,
+    .betrouwbaar {
+        font-size: 1rem;
+    }
+    
+    .daremon {
+        font-size: 1.8rem;
+    }
+    
+    .solutions {
+        font-size: 0.9rem;
+    }
+    
+    .center-btn {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .center-btn svg {
+        width: 24px;
+        height: 24px;
+    }
+    
+    #viz-track-title {
+        font-size: 1.3rem;
+    }
+    
+    #viz-track-artist {
+        font-size: 1rem;
+    }
+}

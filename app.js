@@ -316,12 +316,229 @@ document.addEventListener('DOMContentLoaded', () => {
         playNextTrack();
     }
     
+    // ===============================================
+    // ADVANCED VISUALIZER - Dokładnie jak na obrazie
+    // ===============================================
+    
+    class AdvancedVisualizer {
+        constructor() {
+            this.sunburstCanvas = document.getElementById('sunburst-canvas');
+            this.particlesCanvas = document.getElementById('particles-canvas');
+            this.equalizerCanvas = document.getElementById('equalizer-canvas');
+            
+            if (!this.sunburstCanvas || !this.particlesCanvas || !this.equalizerCanvas) {
+                console.warn('Visualizer canvases not found');
+                return;
+            }
+            
+            this.sunburstCtx = this.sunburstCanvas.getContext('2d');
+            this.particlesCtx = this.particlesCanvas.getContext('2d');
+            this.equalizerCtx = this.equalizerCanvas.getContext('2d');
+            
+            this.particles = [];
+            this.rays = [];
+            this.analyser = null;
+            this.dataArray = null;
+            this.isPlaying = false;
+            
+            this.setupCanvases();
+            this.createRays();
+            this.createParticles();
+            this.animate();
+        }
+        
+        setupCanvases() {
+            const resize = () => {
+                const container = document.getElementById('advanced-visualizer');
+                if (!container) return;
+                
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                
+                [this.sunburstCanvas, this.particlesCanvas, this.equalizerCanvas].forEach(canvas => {
+                    canvas.width = width;
+                    canvas.height = height;
+                });
+                
+                this.width = width;
+                this.height = height;
+                this.centerX = width / 2;
+                this.centerY = height / 2;
+            };
+            
+            resize();
+            window.addEventListener('resize', resize);
+        }
+        
+        setAnalyser(analyser) {
+            this.analyser = analyser;
+            if (analyser) {
+                this.dataArray = new Uint8Array(analyser.frequencyBinCount);
+            }
+        }
+        
+        setPlaying(playing) {
+            this.isPlaying = playing;
+        }
+        
+        createRays() {
+            const rayCount = 120;
+            for (let i = 0; i < rayCount; i++) {
+                const angle = (Math.PI * 2 * i) / rayCount;
+                const length = 150 + Math.random() * 100;
+                this.rays.push({
+                    angle,
+                    length,
+                    baseLength: length,
+                    width: 2 + Math.random() * 3,
+                    opacity: 0.3 + Math.random() * 0.4
+                });
+            }
+        }
+        
+        createParticles() {
+            for (let i = 0; i < 200; i++) {
+                this.resetParticle(i);
+            }
+        }
+        
+        resetParticle(index) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 100 + Math.random() * 50;
+            
+            this.particles[index] = {
+                x: this.centerX + Math.cos(angle) * distance,
+                y: this.centerY + Math.sin(angle) * distance,
+                vx: Math.cos(angle) * (0.5 + Math.random() * 1),
+                vy: Math.sin(angle) * (0.5 + Math.random() * 1),
+                size: 1 + Math.random() * 2,
+                life: 1.0,
+                decay: 0.005 + Math.random() * 0.01
+            };
+        }
+        
+        drawSunburst() {
+            this.sunburstCtx.clearRect(0, 0, this.width, this.height);
+            
+            // Audio reactivity
+            let averageFreq = 0;
+            if (this.analyser && this.dataArray) {
+                this.analyser.getByteFrequencyData(this.dataArray);
+                const sum = this.dataArray.reduce((a, b) => a + b, 0);
+                averageFreq = sum / this.dataArray.length / 255;
+            }
+            
+            const intensityMultiplier = this.isPlaying ? (1 + averageFreq * 0.5) : 0.5;
+            
+            // Rysuj promienie (sunburst)
+            this.rays.forEach((ray, i) => {
+                const audioBoost = this.dataArray ? (this.dataArray[i % this.dataArray.length] / 255) : 0;
+                const currentLength = ray.baseLength * intensityMultiplier * (1 + audioBoost * 0.3);
+                
+                const gradient = this.sunburstCtx.createLinearGradient(
+                    this.centerX,
+                    this.centerY,
+                    this.centerX + Math.cos(ray.angle) * currentLength,
+                    this.centerY + Math.sin(ray.angle) * currentLength
+                );
+                
+                gradient.addColorStop(0, `rgba(255, 165, 0, ${ray.opacity * intensityMultiplier})`);
+                gradient.addColorStop(0.5, `rgba(255, 200, 50, ${ray.opacity * 0.6 * intensityMultiplier})`);
+                gradient.addColorStop(1, 'rgba(255, 165, 0, 0)');
+                
+                this.sunburstCtx.strokeStyle = gradient;
+                this.sunburstCtx.lineWidth = ray.width;
+                this.sunburstCtx.beginPath();
+                this.sunburstCtx.moveTo(this.centerX, this.centerY);
+                this.sunburstCtx.lineTo(
+                    this.centerX + Math.cos(ray.angle) * currentLength,
+                    this.centerY + Math.sin(ray.angle) * currentLength
+                );
+                this.sunburstCtx.stroke();
+            });
+        }
+        
+        drawParticles() {
+            this.particlesCtx.clearRect(0, 0, this.width, this.height);
+            
+            if (!this.isPlaying) return;
+            
+            this.particles.forEach((particle, i) => {
+                // Update
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life -= particle.decay;
+                
+                // Reset if dead
+                if (particle.life <= 0) {
+                    this.resetParticle(i);
+                    return;
+                }
+                
+                // Draw
+                const alpha = particle.life * 0.8;
+                const gradient = this.particlesCtx.createRadialGradient(
+                    particle.x, particle.y, 0,
+                    particle.x, particle.y, particle.size * 2
+                );
+                gradient.addColorStop(0, `rgba(255, 200, 100, ${alpha})`);
+                gradient.addColorStop(1, `rgba(255, 165, 0, 0)`);
+                
+                this.particlesCtx.fillStyle = gradient;
+                this.particlesCtx.beginPath();
+                this.particlesCtx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                this.particlesCtx.fill();
+            });
+        }
+        
+        drawEqualizer() {
+            this.equalizerCtx.clearRect(0, 0, this.width, this.height);
+            
+            if (!this.analyser || !this.dataArray) return;
+            
+            this.analyser.getByteFrequencyData(this.dataArray);
+            
+            const barCount = 80;
+            const barWidth = this.width / barCount;
+            const maxBarHeight = 150;
+            
+            for (let i = 0; i < barCount; i++) {
+                const dataIndex = Math.floor((i / barCount) * this.dataArray.length);
+                const value = this.dataArray[dataIndex] / 255;
+                const barHeight = value * maxBarHeight;
+                
+                const x = i * barWidth;
+                const y = this.height - barHeight;
+                
+                // Gradient dla słupków
+                const gradient = this.equalizerCtx.createLinearGradient(x, y, x, this.height);
+                gradient.addColorStop(0, 'rgba(255, 200, 50, 0.9)');
+                gradient.addColorStop(0.5, 'rgba(255, 165, 0, 0.8)');
+                gradient.addColorStop(1, 'rgba(200, 100, 0, 0.6)');
+                
+                this.equalizerCtx.fillStyle = gradient;
+                this.equalizerCtx.fillRect(x, y, barWidth - 2, barHeight);
+            }
+        }
+        
+        animate() {
+            this.drawSunburst();
+            this.drawParticles();
+            this.drawEqualizer();
+            
+            requestAnimationFrame(() => this.animate());
+        }
+    }
+    
+    // Globalna instancja visualizera
+    let advancedVisualizer = null;
+    
     function setupAudioContext() {
         if (audioContext) return;
         try {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             analyser = audioContext.createAnalyser();
-            analyser.fftSize = 256;
+            analyser.fftSize = 512; // Zwiększ dla lepszej rozdzielczości
 
             players.forEach(player => {
                 const source = audioContext.createMediaElementSource(player);
@@ -329,6 +546,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             analyser.connect(audioContext.destination);
             drawVisualizer();
+            
+            // Inicjalizuj nowy visualizer
+            if (!advancedVisualizer) {
+                advancedVisualizer = new AdvancedVisualizer();
+            }
+            advancedVisualizer.setAnalyser(analyser);
         } catch (e) {
             console.error("Audio context setup failed:", e);
         }
@@ -555,6 +778,12 @@ const inactivePlayerIndex = 1 - activePlayerIndex;
             if (dom.stickyPlayer.cover) dom.stickyPlayer.cover.src = cover;
             document.title = `${title} - DAREMON Radio ETS`;
             
+            // Update visualizer info
+            const vizTitle = document.getElementById('viz-track-title');
+            const vizArtist = document.getElementById('viz-track-artist');
+            if (vizTitle) vizTitle.textContent = title;
+            if (vizArtist) vizArtist.textContent = artist;
+            
             renderRatingUI(id);
             elementsToFade.forEach(el => el.classList.remove('fade-out'));
 
@@ -572,6 +801,25 @@ const inactivePlayerIndex = 1 - activePlayerIndex;
         const label = t(state.isPlaying ? 'playPauseLabel_pause' : 'playPauseLabel_play');
         if (dom.player.playPauseBtn) dom.player.playPauseBtn.setAttribute("aria-label", label);
         if (dom.stickyPlayer.playPauseBtn) dom.stickyPlayer.playPauseBtn.setAttribute("aria-label", label);
+        
+        // Nowy przycisk w logo
+        const centerBtn = document.getElementById('center-play-pause');
+        if (centerBtn) {
+            const playIcon = centerBtn.querySelector('.play-icon');
+            const pauseIcon = centerBtn.querySelector('.pause-icon');
+            if (state.isPlaying) {
+                playIcon?.classList.add('hidden');
+                pauseIcon?.classList.remove('hidden');
+            } else {
+                playIcon?.classList.remove('hidden');
+                pauseIcon?.classList.add('hidden');
+            }
+        }
+        
+        // Update visualizer
+        if (advancedVisualizer) {
+            advancedVisualizer.setPlaying(state.isPlaying);
+        }
     }
 
     function updateProgressBar() {
@@ -1223,6 +1471,13 @@ const inactivePlayerIndex = 1 - activePlayerIndex;
         if (dom.player.playPauseBtn) dom.player.playPauseBtn.addEventListener('click', togglePlayPause);
         if (dom.player.nextBtn) dom.player.nextBtn.addEventListener('click', playNextTrack);
         if (dom.player.likeBtn) dom.player.likeBtn.addEventListener('click', handleLike);
+        
+        // Nowy przycisk w logo
+        const centerPlayPause = document.getElementById('center-play-pause');
+        if (centerPlayPause) {
+            centerPlayPause.addEventListener('click', togglePlayPause);
+        }
+        
         if (dom.player.volumeSlider) {
             dom.player.volumeSlider.addEventListener('input', (e) => { 
                 const newVolume = isQuietHour() ? e.target.value * 0.5 : e.target.value; 
@@ -1399,6 +1654,13 @@ const inactivePlayerIndex = 1 - activePlayerIndex;
             setActivePlayerIndex(index) { activePlayerIndex = index; }
         };
     }
+
+    // Inicjalizuj visualizer po załadowaniu
+    setTimeout(() => {
+        if (!advancedVisualizer) {
+            advancedVisualizer = new AdvancedVisualizer();
+        }
+    }, 100);
 
     initialize();
 });
